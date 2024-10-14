@@ -1,5 +1,6 @@
 import socket
 from threading import Thread
+import os
 
 class Server(Thread):
     def __init__(self, ip, port):
@@ -20,7 +21,7 @@ class Server(Thread):
             try:
                 conexion, direccion = self.socketConnection.accept()
                 print(f"Conexión establecida desde: {direccion}")
-                conexion.send('#NICK#'.encode())  # Solicitar nickname
+                conexion.send('#NICK#'.encode())  
                 nick = self.iniciarChat(conexion)
                 if nick is not None:
                     cliente = Thread(target=self.escucharClientes, args=(nick, conexion,))
@@ -51,10 +52,8 @@ class Server(Thread):
             try:
                 message = conexion.recv(1024).decode()
                 if not message:
-                    # Si no hay mensaje, la conexión se cerró
                     self.desconectarCliente(nickname, conexion)
                     break
-                # Manejo de mensajes recibidos
                 if message == 'exit':
                     self.desconectarCliente(nickname, conexion)
                     break
@@ -62,6 +61,9 @@ class Server(Thread):
                     message = message[5:]
                     self.historialChat.append(f'{nickname}: {message}')
                     self.historialCliente()
+                elif message.startswith("#FILE#"):
+                    file_name = message[6:]
+                    self.recibirArchivo(conexion, file_name, nickname)
             except Exception as e:
                 print(f"Error al recibir mensaje de {nickname}: {e}")
                 self.desconectarCliente(nickname, conexion)
@@ -74,6 +76,29 @@ class Server(Thread):
         self.historialChat.append(f'{nickname} ha abandonado la sala.')
         self.historialClienteExcepcion(conexion)
         conexion.close()
+
+    def recibirArchivo(self, conexion, file_name, nickname):
+        try:
+            print(f"Recibiendo archivo: {file_name}")
+            file_size_data = conexion.recv(1024).decode()
+            if file_size_data.startswith('#SIZE#'):
+                file_size = int(file_size_data[6:])  
+                print(f"Tamaño del archivo: {file_size} bytes")
+
+                with open(file_name, 'wb') as f:
+                    bytes_received = 0
+
+                    while bytes_received < file_size:
+                        file_data = conexion.recv(1024)
+                        if not file_data:   
+                            break
+                        f.write(file_data)
+                        bytes_received += len(file_data)
+                            
+                print(f"Archivo {file_name} recibido y guardado.")
+                self.transmitirArchivo(file_name, conexion, nickname)
+        except Exception as e:
+            print(f"Error al recibir el archivo: {e}")
 
     def errorCliente(self, conexion, text):
         try:
@@ -100,6 +125,29 @@ class Server(Thread):
                 except Exception as e:
                     print(f"Error al enviar historial durante desconexión: {e}")
 
+    def transmitirArchivo(self,file_path, conexion, nickname):
+        lista_users = list(self.usuariosConectados.values())
+        for user in lista_users:
+            try:
+                if user != conexion:
+                    if os.path.isfile(file_path):
+                        user.sendall(('#FILE#'+file_path).encode())
+                        file_size = os.path.getsize(file_path)
+                        user.sendall(f'#SIZE#{file_size}'.encode())
+                        with open(file_path, 'rb') as f:
+                            bytes_sent = 0
+                            while bytes_sent < file_size:
+                                file_data = f.read(1024)
+                                user.sendall(file_data)
+                                bytes_sent += len(file_data)
+                        print("Archivo enviado.")
+                        self.historialChat.append(f"{nickname} ha enviado el archivo {file_path}")
+                        self.historialCliente()
+                    else:
+                        print("El archivo no existe.")
+            except Exception as e:
+                print(f"Error al enviar mensaje a un usuario: {e}")
+
     def obtenerNick(self, conexion):
         try:
             nick = conexion.recv(1024).decode()
@@ -107,6 +155,7 @@ class Server(Thread):
         except Exception as e:
             print(f"Error al recibir el nickname: {e}")
             return None
+
 
 if __name__ == '__main__':
     server = Server('', 9999)

@@ -23,10 +23,25 @@ class Client(Thread):
     def comunicarServer(self):
         while True:
             try:
-                print(self.historial)  # Mostrar historial antes de cada mensaje
-                msg = input("Mensaje: ").strip() 
+                print(self.historial)  
+                msg = input("Mensaje: ").strip()    
                 if msg == 'send':
-                    self.socketConnection.sendall(('#FILE#').encode())
+                    file_path = input("Ingrese el path del archivo: ")
+                    self.limpiarPantalla()
+                    if os.path.isfile(file_path):
+                        self.socketConnection.sendall(('#FILE#'+os.path.basename(file_path)).encode())
+                        file_size = os.path.getsize(file_path)
+                        self.socketConnection.sendall(f'#SIZE#{file_size}'.encode())
+                        with open(file_path, 'rb') as f:
+                            bytes_sent = 0
+                            while bytes_sent < file_size:
+                                file_data = f.read(1024)
+                                self.socketConnection.sendall(file_data)
+                                bytes_sent += len(file_data)
+                    else:
+                        print("El archivo no existe.")
+                        input()
+                        self.limpiarPantalla()
                 elif msg == "exit":
                     self.socketConnection.sendall('exit'.encode())
                     self.socketConnection.close()
@@ -51,7 +66,8 @@ class Client(Thread):
                     break
                 if msg.startswith('#MSG#'):
                     msg = msg[5:]
-                    print(msg)
+                    self.historial += f'\n{msg}' 
+                    print(self.historial)
                 elif msg.startswith('#ERROR#'):
                     msg = msg[7:]
                     print(msg)
@@ -62,6 +78,30 @@ class Client(Thread):
                     print("\nMensaje: ", end='', flush=True)  
                 elif msg.startswith('#NICK#'):
                     self.socketConnection.sendall(self.nickname.encode())
+                elif msg.startswith('#FILE#'):
+                    try:
+                        #file_name = msg[6:]
+                        file_name = 'recibido.txt'
+                        file_size_data = self.socketConnection.recv(1024).decode()
+                        if file_size_data.startswith('#SIZE#'):
+                            file_size = int(file_size_data[6:])  
+                            with open(file_name, 'wb') as f:
+                                bytes_received = 0
+
+                                while bytes_received < file_size:
+                                    file_data = self.socketConnection.recv(1024)
+                                    if not file_data:   
+                                        break
+                                    f.write(file_data)
+                                    bytes_received += len(file_data)
+                            msg = self.socketConnection.recv(1024).decode()
+                            if msg.startswith('#CHAT#'):
+                                self.historial = msg[6:]
+                                self.limpiarPantalla()  
+                                print(self.historial)  
+                                print("\nMensaje: ", end='', flush=True) 
+                    except Exception as e:
+                        print(f"Error al recibir el archivo: {e}")
             except OSError:
                 print("Conexión cerrada.")
                 break
@@ -71,6 +111,8 @@ class Client(Thread):
             os.system('cls')
         else:  
             os.system('clear')
+        
+     
 
     def run(self):
         hilo_recibir = Thread(target=self.recibirServer)
