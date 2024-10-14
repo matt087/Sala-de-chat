@@ -38,6 +38,7 @@ class Client(Thread):
                                 file_data = f.read(1024)
                                 self.socketConnection.sendall(file_data)
                                 bytes_sent += len(file_data)
+                        f.close()
                     else:
                         print("El archivo no existe.")
                         input()
@@ -89,27 +90,23 @@ class Client(Thread):
                             file_size_str = file_size_str[6:]
                         if file_size_str.isdigit():
                             file_size = int(file_size_str)
+                            buffer = bytearray() 
+                            while len(buffer) < file_size:
+                                file_data = self.socketConnection.recv(1024)
+                                buffer.extend(file_data) 
+                            chat_index = buffer.find(b'#CHAT#')
                             
-                            with open(file_name, 'wb') as f:
-                                bytes_received = 0
-                                while bytes_received < file_size:
-                                    file_data = self.socketConnection.recv(1024)
-                                    f.write(file_data)
-                                    bytes_received += len(file_data)
-                            
-                            print(f"Archivo {file_name} recibido.")
-                            msg = self.socketConnection.recv(1024).decode()
-                            print(msg)
-                            if msg.startswith('#CHAT#'):
-                                self.historial = msg[6:]
-                                self.limpiarPantalla()  
-                                print(self.historial)
-                                print("\nMensaje: ", end='', flush=True)
+                            if chat_index != -1: 
+                                with open(file_name, 'wb') as f:
+                                    f.write(buffer[:chat_index])
+                                f.close()
+                            self.limpiarPantalla()
+                            print(self.historial) 
+                            print("\nMensaje: ", end='', flush=True)
+
                     except Exception as e:
                         print(f"Error al recibir el archivo: {e}")
                         break  
-                elif msg:
-                    print("Maybe?")
             except OSError:
                 print("Conexión cerrada.")
                 break

@@ -100,6 +100,8 @@ class Server(Thread):
                         f.write(file_data)
                         bytes_received += len(file_data)
 
+                f.close()
+
                 print(f"Archivo {file_name} recibido y guardado.")
                 self.transmitirArchivo(file_name, conexion, nickname)
             else:
@@ -150,8 +152,9 @@ class Server(Thread):
                                 file_data = f.read(1024)
                                 user.sendall(file_data)
                                 bytes_sent += len(file_data)
-                        
-                        print(f"Archivo {file_path} enviado a {nickname}.")
+
+                        f.close()
+                        print(f"Archivo {file_path} enviado por {nickname}.")
                         self.historialChat.append(f"{nickname} ha enviado el archivo {file_path}")
                         self.historialCliente()
                     else:
