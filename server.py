@@ -1,7 +1,7 @@
 import socket
 from threading import Thread
 import os
-
+import time
 class Server(Thread):
     def __init__(self, ip, port):
         Thread.__init__(self)
@@ -137,31 +137,30 @@ class Server(Thread):
 
     def transmitirArchivo(self, file_path, conexion, nickname):
         lista_users = list(self.usuariosConectados.values())
+        num = 1
         for user in lista_users:
             try:
                 if user != conexion:
                     if os.path.isfile(file_path):
-                        user.sendall(('#FILE#' + file_path).encode())
-                        
+                        user.sendall(('#FILE#'+os.path.basename(file_path)).encode())
                         file_size = os.path.getsize(file_path)
-                        user.sendall(f'#SIZE#{file_size}^'.encode())  
-                        
+                        user.sendall(f'#SIZE#{file_size}^'.encode())
                         with open(file_path, 'rb') as f:
                             bytes_sent = 0
                             while bytes_sent < file_size:
+                                print(num)
+                                num+=1
                                 file_data = f.read(1024)
                                 user.sendall(file_data)
                                 bytes_sent += len(file_data)
-
                         f.close()
-                        print(f"Archivo {file_path} enviado por {nickname}.")
-                        self.historialChat.append(f"{nickname} ha enviado el archivo {file_path}")
-                        self.historialCliente()
                     else:
-                        print(f"El archivo {file_path} no existe.")
+                        print("El archivo no existe.")
             except Exception as e:
-                print(f"Error al enviar el archivo a {user}: {e}")
-
+                print(f"Error al enviar el archivo a {nickname}: {e}")
+        self.historialChat.append(f'{nickname} ha enviado el archivo {file_path}')
+        time.sleep(1)
+        self.historialCliente()
     def obtenerNick(self, conexion):
         try:
             nick = conexion.recv(1024).decode()

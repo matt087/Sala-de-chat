@@ -12,6 +12,7 @@ class Client(Thread):
         self.historial = ""
         self.nickname = input("Ingrese su nickname: ")
         self.connection()
+        self.recepcion = '/home/emontenegro/SD/test/r/'
 
     def connection(self):
         try:
@@ -83,30 +84,27 @@ class Client(Thread):
                     try:
                         file_name = msg[6:]
                         file_size_data = b''
-                        while not file_size_data.endswith(b'^'):
+                        while not file_size_data.endswith(b'^'):  
                             file_size_data += self.socketConnection.recv(1)
-                        file_size_str = file_size_data.decode()[:-1]
+                        file_size_str = file_size_data.decode()[:-1] 
                         if file_size_str.startswith("#SIZE#"):
                             file_size_str = file_size_str[6:]
                         if file_size_str.isdigit():
                             file_size = int(file_size_str)
-                            buffer = bytearray() 
-                            while len(buffer) < file_size:
-                                file_data = self.socketConnection.recv(1024)
-                                buffer.extend(file_data) 
-                            chat_index = buffer.find(b'#CHAT#')
-                            
-                            if chat_index != -1: 
-                                with open(file_name, 'wb') as f:
-                                    f.write(buffer[:chat_index])
-                                f.close()
-                            self.limpiarPantalla()
-                            print(self.historial) 
-                            print("\nMensaje: ", end='', flush=True)
+                            with open(self.recepcion+file_name, 'wb') as f:
+                                bytes_received = 0
+                                while bytes_received < file_size:
+                                    file_data = self.socketConnection.recv(1024)
+                                    if not file_data:   
+                                        break
+                                    f.write(file_data)
+                                    bytes_received += len(file_data)
 
+                            f.close()
+                        else:
+                            print(f"Error: Tamaño de archivo no válido: {file_size_str}")
                     except Exception as e:
                         print(f"Error al recibir el archivo: {e}")
-                        break  
             except OSError:
                 print("Conexión cerrada.")
                 break
