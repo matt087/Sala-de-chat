@@ -31,7 +31,7 @@ class Client(Thread):
                     if os.path.isfile(file_path):
                         self.socketConnection.sendall(('#FILE#'+os.path.basename(file_path)).encode())
                         file_size = os.path.getsize(file_path)
-                        self.socketConnection.sendall(f'#SIZE#{file_size}'.encode())
+                        self.socketConnection.sendall(f'#SIZE#{file_size}^'.encode())  
                         with open(file_path, 'rb') as f:
                             bytes_sent = 0
                             while bytes_sent < file_size:
@@ -75,36 +75,45 @@ class Client(Thread):
                     self.historial = msg[6:]
                     self.limpiarPantalla()  
                     print(self.historial)  
-                    print("\nMensaje: ", end='', flush=True)  
+                    print("\nMensaje: ", end='', flush=True)
                 elif msg.startswith('#NICK#'):
                     self.socketConnection.sendall(self.nickname.encode())
                 elif msg.startswith('#FILE#'):
                     try:
-                        #file_name = msg[6:]
-                        file_name = 'recibido.txt'
-                        file_size_data = self.socketConnection.recv(1024).decode()
-                        if file_size_data.startswith('#SIZE#'):
-                            file_size = int(file_size_data[6:])  
+                        file_name = msg[6:]
+                        file_size_data = b''
+                        while not file_size_data.endswith(b'^'):
+                            file_size_data += self.socketConnection.recv(1)
+                        file_size_str = file_size_data.decode()[:-1]
+                        if file_size_str.startswith("#SIZE#"):
+                            file_size_str = file_size_str[6:]
+                        if file_size_str.isdigit():
+                            file_size = int(file_size_str)
+                            
                             with open(file_name, 'wb') as f:
                                 bytes_received = 0
-
                                 while bytes_received < file_size:
                                     file_data = self.socketConnection.recv(1024)
-                                    if not file_data:   
-                                        break
                                     f.write(file_data)
                                     bytes_received += len(file_data)
+                            
+                            print(f"Archivo {file_name} recibido.")
                             msg = self.socketConnection.recv(1024).decode()
+                            print(msg)
                             if msg.startswith('#CHAT#'):
                                 self.historial = msg[6:]
                                 self.limpiarPantalla()  
-                                print(self.historial)  
-                                print("\nMensaje: ", end='', flush=True) 
+                                print(self.historial)
+                                print("\nMensaje: ", end='', flush=True)
                     except Exception as e:
                         print(f"Error al recibir el archivo: {e}")
+                        break  
+                elif msg:
+                    print("Maybe?")
             except OSError:
                 print("Conexión cerrada.")
                 break
+
 
     def limpiarPantalla(self):
         if os.name == 'nt':  

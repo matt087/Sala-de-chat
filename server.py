@@ -80,9 +80,14 @@ class Server(Thread):
     def recibirArchivo(self, conexion, file_name, nickname):
         try:
             print(f"Recibiendo archivo: {file_name}")
-            file_size_data = conexion.recv(1024).decode()
-            if file_size_data.startswith('#SIZE#'):
-                file_size = int(file_size_data[6:])  
+            file_size_data = b''
+            while not file_size_data.endswith(b'^'):  
+                file_size_data += conexion.recv(1)
+            file_size_str = file_size_data.decode()[:-1] 
+            if file_size_str.startswith("#SIZE#"):
+                file_size_str = file_size_str[6:]
+            if file_size_str.isdigit():
+                file_size = int(file_size_str)
                 print(f"Tamaño del archivo: {file_size} bytes")
 
                 with open(file_name, 'wb') as f:
@@ -94,11 +99,14 @@ class Server(Thread):
                             break
                         f.write(file_data)
                         bytes_received += len(file_data)
-                            
+
                 print(f"Archivo {file_name} recibido y guardado.")
                 self.transmitirArchivo(file_name, conexion, nickname)
+            else:
+                print(f"Error: Tamaño de archivo no válido: {file_size_str}")
         except Exception as e:
             print(f"Error al recibir el archivo: {e}")
+
 
     def errorCliente(self, conexion, text):
         try:
@@ -125,28 +133,31 @@ class Server(Thread):
                 except Exception as e:
                     print(f"Error al enviar historial durante desconexión: {e}")
 
-    def transmitirArchivo(self,file_path, conexion, nickname):
+    def transmitirArchivo(self, file_path, conexion, nickname):
         lista_users = list(self.usuariosConectados.values())
         for user in lista_users:
             try:
                 if user != conexion:
                     if os.path.isfile(file_path):
-                        user.sendall(('#FILE#'+file_path).encode())
+                        user.sendall(('#FILE#' + file_path).encode())
+                        
                         file_size = os.path.getsize(file_path)
-                        user.sendall(f'#SIZE#{file_size}'.encode())
+                        user.sendall(f'#SIZE#{file_size}^'.encode())  
+                        
                         with open(file_path, 'rb') as f:
                             bytes_sent = 0
                             while bytes_sent < file_size:
                                 file_data = f.read(1024)
                                 user.sendall(file_data)
                                 bytes_sent += len(file_data)
-                        print("Archivo enviado.")
+                        
+                        print(f"Archivo {file_path} enviado a {nickname}.")
                         self.historialChat.append(f"{nickname} ha enviado el archivo {file_path}")
                         self.historialCliente()
                     else:
-                        print("El archivo no existe.")
+                        print(f"El archivo {file_path} no existe.")
             except Exception as e:
-                print(f"Error al enviar mensaje a un usuario: {e}")
+                print(f"Error al enviar el archivo a {user}: {e}")
 
     def obtenerNick(self, conexion):
         try:
