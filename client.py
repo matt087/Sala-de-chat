@@ -12,7 +12,8 @@ class Client(Thread):
         self.historial = ""
         self.nickname = input("Ingrese su nickname: ")
         self.connection()
-        self.recepcion = '/home/emontenegro/SD/test/r/'
+        self.recepcion = '/home/emontenegro/Descargas/'
+        #self.recepcion = 'C:/Users/emont/Desktop/SEXTO_SEMESTRE/Sistemas Distribuidos/Código/Sockets_archivos/a/'
 
     def connection(self):
         try:

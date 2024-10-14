@@ -137,7 +137,6 @@ class Server(Thread):
 
     def transmitirArchivo(self, file_path, conexion, nickname):
         lista_users = list(self.usuariosConectados.values())
-        num = 1
         for user in lista_users:
             try:
                 if user != conexion:
@@ -148,8 +147,6 @@ class Server(Thread):
                         with open(file_path, 'rb') as f:
                             bytes_sent = 0
                             while bytes_sent < file_size:
-                                print(num)
-                                num+=1
                                 file_data = f.read(1024)
                                 user.sendall(file_data)
                                 bytes_sent += len(file_data)
